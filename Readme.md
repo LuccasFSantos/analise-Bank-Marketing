@@ -2,17 +2,25 @@
 
 Projeto de Machine Learning desenvolvido para prever a conversão de clientes em depósitos a prazo durante abordagens de marketing bancário. A solução abrange desde o pré-processamento estrito para evitar vazamento de dados (*data leakage*) até a interpretação preditiva com SHAP Values e o desenho da arquitetura de implantação em Azure Databricks.
 
+---
+
 ## Sumário
 
-- [1. Visão Geral do Problema](#1-visão-geral-do-problema)
-- [2. Análise e Qualidade dos Dados](#2-análise-e-qualidade-dos-dados)
-- [3. Engenharia de Pré-Processamento](#3-engenharia-de-pré-processamento)
-- [4. Modelagem e Resultados](#4-modelagem-e-resultados)
-- [5. Interpretação do Modelo e Insights (SHAP)](#5-interpretação-do-modelo-e-insights-shap)
-- [6. Recomendações Estratégicas](#6-recomendações-estratégicas)
-- [7. Arquitetura de Produção (Azure Databricks)](#7-arquitetura-de-produção-azure-databricks)
-- [8. Como Executar o Projeto](#8-como-executar-o-projeto)
-- [9. Estrutura do Repositório](#9-estrutura-do-repositório)
+- [Portuguese Banking Marketing — Predictive Machine Learning \& Lakehouse Architecture](#portuguese-banking-marketing--predictive-machine-learning--lakehouse-architecture)
+  - [Sumário](#sumário)
+  - [1. Visão Geral do Problema](#1-visão-geral-do-problema)
+  - [2. Análise e Qualidade dos Dados](#2-análise-e-qualidade-dos-dados)
+    - [Prevenção de Vazamento de Dados (Data Leakage)](#prevenção-de-vazamento-de-dados-data-leakage)
+    - [Tratamento de Indeterminações e Regra de Negócio](#tratamento-de-indeterminações-e-regra-de-negócio)
+  - [3. Engenharia de Pré-Processamento](#3-engenharia-de-pré-processamento)
+  - [4. Modelagem e Resultados](#4-modelagem-e-resultados)
+    - [Tabela Comparativa de Performance](#tabela-comparativa-de-performance)
+    - [Justificativa da Escolha](#justificativa-da-escolha)
+  - [5. Interpretação do Modelo e Insights (SHAP)](#5-interpretação-do-modelo-e-insights-shap)
+    - [Principais Variáveis Preditivas](#principais-variáveis-preditivas)
+  - [6. Recomendações Estratégicas](#6-recomendações-estratégicas)
+  - [7. Arquitetura de Produção (Azure Databricks)](#7-arquitetura-de-produção-azure-databricks)
+  - [8. Google Colab](#8-google-colab)
 
 ---
 
@@ -20,9 +28,9 @@ Projeto de Machine Learning desenvolvido para prever a conversão de clientes em
 
 O objetivo técnico é mensurar a propensão de clientes para contratação de depósitos a prazo, permitindo a priorização de abordagens comerciais e a otimização de custos operacionais do call center.
 
-* **Dataset:** Bank Marketing Dataset (Kaggle) — 45.211 registros e 17 atributos históricos.
-* **Variável Alvo ($y$):** Binária (`1` = Converteu, `0` = Não converteu).
-* **Distribuição de Classe:** Apenas 11,7% da base histórica representa conversões positivas, exigindo métricas de validação focadas em ordenação de risco e separabilidade (ROC-AUC).
+- **Dataset:** Bank Marketing Dataset (Kaggle) — 45.211 registros e 17 atributos históricos.
+- **Variável Alvo ($y$):** Binária (`1` = Converteu, `0` = Não converteu).
+- **Distribuição de Classe:** Apenas 11,7% da base histórica representa conversões positivas, exigindo métricas de validação focadas em ordenação de risco e separabilidade (ROC-AUC).
 
 ---
 
@@ -36,9 +44,9 @@ O objetivo técnico é mensurar a propensão de clientes para contratação de d
 
 ### Tratamento de Indeterminações e Regra de Negócio
 
-* **Integridade Física:** O dataset não contém valores nulos do tipo `NaN`.
-* **Semântica do Atributo `unknown`:** As categorias registradas como `unknown` em `poutcome` (81,75%) e `contact` (28,80%) não foram removidas ou imputadas.
-* **Validação Cruzada:** A taxa de `unknown` em `poutcome` coincide com o indicador `pdays = -1` (81,74%), confirmando que o dado ausente representa clientes sem histórico de campanhas anteriores (primeiro contato no funil).
+- **Integridade Física:** O dataset não contém valores nulos do tipo `NaN`.
+- **Semântica do Atributo `unknown`:** As categorias registradas como `unknown` em `poutcome` (81,75%) e `contact` (28,80%) não foram removidas ou imputadas.
+- **Validação Cruzada:** A taxa de `unknown` em `poutcome` coincide com o indicador `pdays = -1` (81,74%), confirmando que o dado ausente representa clientes sem histórico de campanhas anteriores (primeiro contato no funil).
 
 ---
 
@@ -46,15 +54,15 @@ O objetivo técnico é mensurar a propensão de clientes para contratação de d
 
 As transformações foram estruturadas em um `ColumnTransformer` do Scikit-Learn e aplicadas estritamente após a separação de treino e teste para isolar a base de validação.
 
-```
-   Base Bruta (45.211 registros)
-         │
-         ├── Divisão Estratificada (70% Treino / 30% Teste)
-         │
-         └── ColumnTransformer
-               ├── Atributos Numéricos (6)   ──> StandardScaler (Z-Score)
-               └── Atributos Categóricos (9) ──> OneHotEncoder (drop='first')
-                                                      │
+```text
+ Base Bruta (45.211 registros)
+       │
+       ├── Divisão Estratificada (70% Treino / 30% Teste)
+       │
+       └── ColumnTransformer
+             ├── Atributos Numéricos (6)   ──> StandardScaler (Z-Score)
+             └── Atributos Categóricos (9) ──> OneHotEncoder (drop='first')
+                                                     │
                                            Matriz Processada (41 Features)
 ```
 
@@ -108,23 +116,26 @@ A análise de importância de atributos foi realizada com **SHAP (SHapley Additi
 
 Proposta de arquitetura corporativa para servimento do modelo em ambiente de nuvem:
 
-```
+```text
 [Fontes de Dados] ──> [Bronze Layer] ──> [Silver Layer] ──> [Gold Layer / Feature Store]
- (CRM / Logs)        (Delta Lake)        (Limpeza/OHE)         (Score / Prep)
-                                                                    │
-                                                            [Unity Catalog]
-                                                                    │
-                                                          [MLflow Registry]
-                                                                    │
-                                            ┌───────────────────────┴───────────────────────┐
-                                            ▼                                               ▼
-                              [Batch Scoring Workflow]                          [Real-time Model Serving]
-                              (Pontuação Diária no CRM)                          (API REST RESTful)
+ (CRM / Logs)         (Delta Lake)        (Limpeza/OHE)          (Score / Prep)
+                                                                       │
+                                                                 [Unity Catalog]
+                                                                       │
+                                                               [MLflow Registry]
+                                                                       │
+                                           ┌───────────────────────────┴───────────────────────────┐
+                                           ▼                                                       ▼
+                             [Batch Scoring Workflow]                           [Real-time Model Serving]
+                            (Pontuação Diária no CRM)                                (API RESTful)
 ```
 
-* **Camada Lakehouse (Medallion):** Ingestão via Databricks Auto Loader (Bronze), limpeza e transformação no padrão Delta Lake (Silver) e persistência de atributos no Databricks Feature Store (Gold).
-* **Governança (MLflow + Unity Catalog):** Rastreamento de experimentos, versionamento de código/artefatos e controle de acesso baseado em funções (RBAC).
-* **Estratégia de Servimento:** Inferência diária em lote para atualização de listas no CRM e disponibilização de endpoint REST via Databricks Model Serving para consulta em tempo real.
+- **Camada Lakehouse (Medallion):** Ingestão via Databricks Auto Loader (Bronze), limpeza e transformação no padrão Delta Lake (Silver) e persistência de atributos no Databricks Feature Store (Gold).
+- **Governança (MLflow + Unity Catalog):** Rastreamento de experimentos, versionamento de código/artefatos e controle de acesso baseado em funções (RBAC).
+- **Estratégia de Servimento:** Inferência diária em lote para atualização de listas no CRM e disponibilização de endpoint REST via Databricks Model Serving para consulta em tempo real.
 
 ---
 
+## 8. Google Colab
+
+- [Executar Notebook no Google Colab](https://colab.research.google.com/drive/1FNz1s8H1EJ2VqhGsVm51dSNziVCAK8OK?usp=sharing)                    
